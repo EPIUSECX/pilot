@@ -2,6 +2,11 @@ name: Desktop release (signed)
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Create a draft GitHub release from this build
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -9,6 +14,8 @@ permissions:
 jobs:
   signed-build:
     name: Developer ID signed and notarized build
+    permissions:
+      contents: write
     runs-on: macos-14
     timeout-minutes: 90
     environment: desktop-release
@@ -48,3 +55,20 @@ jobs:
           path: |
             desktop/src-tauri/target/release/bundle/macos/*.app
             desktop/src-tauri/target/release/bundle/dmg/*.dmg
+      - name: Name the files
+        if: ${{ inputs.publish }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p release
+          cp src-tauri/target/release/bundle/dmg/*.dmg "release/Pilot-Desktop_${VERSION}_aarch64.dmg"
+          ditto -c -k --keepParent src-tauri/target/release/bundle/macos/*.app "release/Pilot-Desktop_${VERSION}_aarch64.app.zip"
+          (cd release && shasum -a 256 * > SHA256SUMS)
+      - name: Publish a draft release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "desktop-v${VERSION}" release/* \
+            --target "$GITHUB_SHA" --draft --generate-notes \
+            --title "Pilot Desktop ${VERSION}"
