@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "launcher",
+  "description": "Native commands for the bundled launcher window only. Dashboard windows have no capability.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-detect-environment",
+    "allow-choose-pilot-installation",
+    "allow-plan-installation",
+    "allow-begin-installation",
+    "allow-get-runtime-info",
+    "allow-list-benches",
+    "allow-create-bench",
+    "allow-start-bench",
+    "allow-cancel-start",
+    "allow-stop-bench",
+    "allow-restart-bench",
+    "allow-open-dashboard",
+    "allow-reset-dashboard-session",
+    "allow-open-project",
+    "allow-read-logs",
+    "allow-get-preferences",
+    "allow-save-preferences",
+    "allow-quit-app",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

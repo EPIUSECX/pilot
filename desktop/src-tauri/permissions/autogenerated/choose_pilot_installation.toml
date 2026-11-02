@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-choose-pilot-installation"
+description = "Enables the choose_pilot_installation command without any pre-configured scope."
+commands.allow = ["choose_pilot_installation"]
+
+[[permission]]
+identifier = "deny-choose-pilot-installation"
+description = "Denies the choose_pilot_installation command without any pre-configured scope."
+commands.deny = ["choose_pilot_installation"]
