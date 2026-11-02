@@ -1,0 +1,60 @@
+name: Desktop
+
+on:
+  pull_request:
+    paths:
+      - desktop/**
+      - admin/backend/run_server.py
+      - .github/workflows/desktop.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks and unsigned build
+    runs-on: macos-14
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record runner
+        run: |
+          uname -m
+          sw_vers
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - run: npm ci
+      - name: Frappe UI v1 and Tailwind compatibility
+        run: npm run check:dependencies
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Bridge tests
+        working-directory: .
+        run: uv run --no-project --python 3.12 --with pytest python -m pytest desktop/bridge/tests tests/admin/backend/test_run_server_host.py -q
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Unsigned app and dmg
+        run: npm run tauri:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pilot-desktop-unsigned-${{ runner.arch }}
+          path: |
+            desktop/src-tauri/target/release/bundle/macos/*.app
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg

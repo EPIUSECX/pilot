@@ -1,11 +1,30 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import logging
 import os
 import subprocess
 import threading
+from collections.abc import Mapping
 from pathlib import Path
+
+BIND_HOST_ENV = "PILOT_ADMIN_HOST"
+# "::" makes Werkzeug bind a dual-stack socket, so the admin is reachable
+# over both IPv4 and IPv6 in dev (where there is no nginx in front).
+DEFAULT_BIND_HOST = "::"
+
+
+def resolve_bind_host(environ: Mapping[str, str] | None = None) -> str:
+    """Address the admin listens on: `PILOT_ADMIN_HOST` when set, else every interface."""
+    value = (os.environ if environ is None else environ).get(BIND_HOST_ENV, "").strip()
+    if not value:
+        return DEFAULT_BIND_HOST
+    try:
+        ipaddress.ip_address(value)
+    except ValueError as error:
+        raise SystemExit(f"{BIND_HOST_ENV} must be an IP address, got {value!r}.") from error
+    return value
 
 
 def main() -> None:
@@ -66,9 +85,7 @@ def main() -> None:
 
         TaskWorkerControl(bench_root).start_background_worker()
 
-    # "::" makes Werkzeug bind a dual-stack socket, so the admin is reachable
-    # over both IPv4 and IPv6 in dev (where there is no nginx in front).
-    app.run(host="::", port=args.port, threaded=True, use_reloader=args.dev)
+    app.run(host=resolve_bind_host(), port=args.port, threaded=True, use_reloader=args.dev)
 
 
 def _start_vite_watch() -> None:

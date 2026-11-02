@@ -121,6 +121,8 @@ allow_bench_management = true
 
 With `enabled = false`, `pilot start` does not run the Admin. `pilot dev setup` creates benches this way.
 
+In development the Admin server listens on every interface (`::`). Set `PILOT_ADMIN_HOST` to an IP address such as `127.0.0.1` before `pilot start` to bind it to one address; Pilot Desktop does this. A value that is not an IP address stops the Admin at startup.
+
 Nginx proxies admin traffic to `port + 1` on localhost. In production, `admin.domain` is required. `allow_bench_management` permits this admin to manage sibling benches and defaults to enabled only for development installs. It also permits killing database processes and purging binlogs, because both affect every bench on the host. Database settings and the MariaDB restart do not need it.
 
 A production site calls Pilot at the loopback `pilot_endpoint` in its `site_config.json`, independently of DNS or `admin.domain`. The browser loads Cloud Settings assets from `cloud_settings_embed_url = "/_pilot"`; nginx serves `/_pilot/embed/cloud-settings/` on the site's origin. API calls still pass through Frappe with the server-held site token. `cloud_server_url` holds the public admin URL for dashboard links and follows admin domain changes. Development benches without nginx retain the public admin embed URL. The `serve_site_embeds_locally` upgrade patch publishes nginx routes before updating existing production site configs and clearing their caches.
