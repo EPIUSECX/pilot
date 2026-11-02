@@ -156,6 +156,8 @@ class SiteCommands:
         return ["--db-host", mariadb.host, "--db-port", str(mariadb.port)]
 
     def postgres_db_args(self) -> list[str]:
+        from pilot.managers.database import PostgresManager
+
         postgres = self.site.bench.config.postgres
         return [
             "--db-type",
@@ -163,5 +165,5 @@ class SiteCommands:
             "--db-host",
             postgres.host,
             "--db-port",
-            str(postgres.port),
+            str(PostgresManager(postgres).port),
         ]

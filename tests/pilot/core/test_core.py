@@ -1045,6 +1045,7 @@ def _postgres_bench(tmp_path: Path, **postgres):
 def test_site_create_postgres_builds_db_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     bench = _postgres_bench(tmp_path, root_password="pgsecret", port=5433)
     captured = _capture_site_cmd(monkeypatch)
+    monkeypatch.setattr("pilot.managers.database.postgres.is_macos", lambda: False)
 
     Site(SiteConfig(name="pg.localhost", apps=["frappe"], admin_password="secret"), bench).create()
 

@@ -43,6 +43,37 @@ def test_external_server_does_not_infer_pilot_managed_socket(tmp_path) -> None:
         assert manager._detect_socket() == ""
 
 
+def test_macos_uses_the_homebrew_socket_instead_of_the_unused_pilot_port(tmp_path) -> None:
+    homebrew_socket = tmp_path / "mysql.sock"
+    homebrew_socket.touch()
+    manager = MariaDBManager(MariaDBConfig())
+    with (
+        patch(f"{MODULE}.is_macos", return_value=True),
+        patch(f"{MODULE}._HOMEBREW_SOCKET", str(homebrew_socket)),
+    ):
+        assert manager._detect_socket() == str(homebrew_socket)
+
+
+def test_macos_without_a_running_homebrew_server_has_no_socket(tmp_path) -> None:
+    manager = MariaDBManager(MariaDBConfig())
+    with (
+        patch(f"{MODULE}.is_macos", return_value=True),
+        patch(f"{MODULE}._HOMEBREW_SOCKET", str(tmp_path / "absent.sock")),
+    ):
+        assert manager._detect_socket() == ""
+
+
+def test_an_existing_server_on_macos_is_never_given_the_homebrew_socket(tmp_path) -> None:
+    homebrew_socket = tmp_path / "mysql.sock"
+    homebrew_socket.touch()
+    manager = MariaDBManager(MariaDBConfig(host="db.example.com", existing=True))
+    with (
+        patch(f"{MODULE}.is_macos", return_value=True),
+        patch(f"{MODULE}._HOMEBREW_SOCKET", str(homebrew_socket)),
+    ):
+        assert manager._detect_socket() == ""
+
+
 def test_default_port_avoids_standard_mysql_port() -> None:
     assert MariaDBConfig().port == 3310
 
@@ -1451,10 +1482,26 @@ def test_the_sizing_unit_runs_before_every_mariadb_start(tmp_path) -> None:
 def test_client_command_uses_homebrew_default_socket_on_macos() -> None:
     manager = _manager()
 
-    with patch(f"{MODULE}.is_macos", return_value=True):
+    with (
+        patch(f"{MODULE}.is_macos", return_value=True),
+        patch(f"{MODULE}._HOMEBREW_SOCKET", "/nonexistent/mysql.sock"),
+    ):
         command = manager._client_command()
 
     assert command == ["mariadb", "--connect-timeout=5", "-u", "root", "--batch"]
+
+
+def test_client_command_names_the_homebrew_socket_when_it_exists(tmp_path) -> None:
+    homebrew_socket = tmp_path / "mysql.sock"
+    homebrew_socket.touch()
+
+    with (
+        patch(f"{MODULE}.is_macos", return_value=True),
+        patch(f"{MODULE}._HOMEBREW_SOCKET", str(homebrew_socket)),
+    ):
+        command = _manager()._client_command()
+
+    assert command[-1] == f"--socket={homebrew_socket}"
 
 
 @pytest.mark.parametrize("maximum", [256, 512, 4096, None])
