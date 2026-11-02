@@ -1,0 +1,75 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: frappe/pilot
+  TARGET: develop
+  SYNC_BRANCH: sync/upstream
+
+jobs:
+  sync:
+    name: Merge upstream into ${{ github.repository }}
+    if: github.repository != 'frappe/pilot'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "https://github.com/${UPSTREAM}.git"
+          git fetch upstream "$TARGET"
+          echo "BEHIND=$(git rev-list --count "HEAD..upstream/$TARGET")" >> "$GITHUB_ENV"
+
+      - name: Merge into the sync branch
+        if: env.BEHIND != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$SYNC_BRANCH"
+          if git merge "upstream/$TARGET" --no-edit -m "Merge upstream $UPSTREAM $TARGET into $TARGET"; then
+            git push --force origin "$SYNC_BRANCH"
+            echo "CONFLICT=false" >> "$GITHUB_ENV"
+          else
+            git merge --abort
+            echo "CONFLICT=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Open or update the pull request
+        if: env.BEHIND != '0' && env.CONFLICT == 'false'
+        run: |
+          open=$(gh pr list --head "$SYNC_BRANCH" --base "$TARGET" --state open --json number --jq 'length')
+          if [ "$open" = "0" ]; then
+            gh pr create --head "$SYNC_BRANCH" --base "$TARGET" \
+              --title "Sync upstream $UPSTREAM $TARGET" \
+              --body "Merges $BEHIND new commit(s) from $UPSTREAM into $TARGET. Created by the Sync upstream workflow."
+          fi
+
+      - name: Report a conflict
+        if: env.BEHIND != '0' && env.CONFLICT == 'true'
+        run: |
+          open=$(gh issue list --label upstream-sync --state open --json number --jq 'length')
+          if [ "$open" = "0" ]; then
+            gh label create upstream-sync --color BFD4F2 --description "Upstream merge needs a person" 2>/dev/null || true
+            gh issue create --label upstream-sync \
+              --title "Upstream sync needs a manual merge" \
+              --body "Merging $UPSTREAM $TARGET ($BEHIND new commit(s)) into $TARGET conflicts. Run: git fetch upstream && git switch -c sync/manual && git merge upstream/$TARGET, resolve the conflicts, then open a pull request."
+          fi
