@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        body = {"/health": {"status": "ok"}, "/bootstrap": {"mode": "admin", "enabled": True, "name": "main"}}.get(self.path, {})
+        body = {"/api/v1/health": {"status": "ok"}, "/api/v1/bootstrap": {"mode": "admin", "enabled": True, "name": "main"}}.get(self.path, {})
         self.send_response(200)
         self.end_headers()
         self.wfile.write(json.dumps(body).encode())

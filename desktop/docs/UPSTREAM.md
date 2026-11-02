@@ -50,8 +50,9 @@ Everything below was read from the Pilot source at the pinned commit or from com
 
 ## 5. Readiness and identity
 
-- `GET /health` returns `{"status":"ok"}` with no authentication and `Access-Control-Allow-Origin: *`. It proves a Flask app answers, not which bench.
-- `GET /bootstrap` is unauthenticated and returns `mode` (`setup`, `pending`, `admin`), `enabled` and `name`, where `name` is `BenchConfig.name`.
+- Both routes live under `/api/v1`. The same paths at the root (`/health`, `/bootstrap`) return the dashboard page with status 200, so Desktop reads only `/api/v1/...` and requires JSON. Found on a real bench on 2 November 2026; the first version of Desktop probed the root paths and could never see a real bench as ready.
+- `GET /api/v1/health` returns `{"status":"ok"}` with no authentication and `Access-Control-Allow-Origin: *`. It proves a Flask app answers, not which bench.
+- `GET /api/v1/bootstrap` is unauthenticated and returns `mode` (`setup`, `pending`, `admin`), `enabled` and `name`, where `name` is `BenchConfig.name`.
 - `ProcessManager.is_admin_running()` is only a TCP connect to `admin.port`, which any process satisfies.
 - Desktop verification, all required: (1) `bench.toml` gives the expected name and port. (2) The process listening on that port, found with `lsof`, descends from the bench's live supervisor pid (`pids/bench.pid`), or from the process Desktop spawned, or, for a wizard started elsewhere, has a command line with `admin.backend.run_server` and this bench's `--bench-root`. (3) `/health` answers. (4) `/bootstrap` returns the expected `name`. A listener that fails (2) or (4) is a conflict, never a success.
 
@@ -64,7 +65,7 @@ Everything below was read from the Pilot source at the pinned commit or from com
 
 ## 7. APIs and task events
 
-- Flask JSON API under `admin/backend/api/v1`. Not Frappe DocType endpoints. Desktop calls only `/health` and `/bootstrap`; the dashboard makes every other call itself.
+- Flask JSON API under `admin/backend/api/v1`. Not Frappe DocType endpoints. Desktop calls only `/api/v1/health` and `/api/v1/bootstrap`; the dashboard makes every other call itself.
 - Task events are Server-Sent Events: `GET /tasks/<task_id>/events` and a second stream in `tasks.py` (`text/event-stream`). Desktop does not subscribe. The dashboard consumes them inside its own window.
 - Long work returns `{"task_id", "created"}`. Active-task state is also on disk: `pilot.managers.task.activity.TaskActivityReader(bench_root).read()` returns `active`, `uncertain`, `queued_tasks` and `running_tasks` from `<bench>/tasks` with no login. The bridge's `activity` command wraps it, and an active or uncertain result blocks Stop and Restart.
 

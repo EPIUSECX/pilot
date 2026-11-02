@@ -1,5 +1,6 @@
 pub mod adapter;
 pub mod creation;
+pub mod diagnosis;
 pub mod discovery;
 pub mod exec;
 pub mod logs;

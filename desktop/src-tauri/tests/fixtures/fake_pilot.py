@@ -52,10 +52,10 @@ def serve(name):
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            body = {"/health": {"status": "ok"}, "/bootstrap": {"mode": "admin", "enabled": True, "name": name}}.get(self.path)
-            self.send_response(200 if body else 404)
+            body = {"/api/v1/health": {"status": "ok"}, "/api/v1/bootstrap": {"mode": "admin", "enabled": True, "name": name}}.get(self.path)
+            self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps(body or {}).encode())
+            self.wfile.write(json.dumps(body).encode() if body else b"<!doctype html><title>Pilot</title>")
 
         def log_message(self, *args):
             pass

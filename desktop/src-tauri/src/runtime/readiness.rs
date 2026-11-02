@@ -9,6 +9,8 @@ use super::process::ProcessTable;
 use crate::contracts::BenchTarget;
 use crate::error::AppResult;
 
+/// The Admin API lives under this prefix. Other paths serve the dashboard page, which answers 200 to everything.
+const API_PREFIX: &str = "/api/v1";
 const WIZARD_MODULE: &str = "admin.backend.run_server";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -89,7 +91,7 @@ pub fn probe_http(port: u16) -> HttpProbe {
         .build()
         .into();
     let fetch = |route: &str| -> Option<Value> {
-        let mut response = agent.get(&format!("http://127.0.0.1:{port}{route}")).call().ok()?;
+        let mut response = agent.get(&format!("http://127.0.0.1:{port}{API_PREFIX}{route}")).call().ok()?;
         if response.status().as_u16() != 200 {
             return None;
         }
@@ -217,5 +219,23 @@ mod tests {
         let table = table();
         let path = Path::new("/Users/a b/pilot/benches/main");
         assert_eq!(classify(&inputs(&[], &HttpProbe::default(), &table, path, Some(999))), Verdict::Free);
+    }
+
+    #[test]
+    fn a_page_that_answers_200_to_every_path_is_not_a_healthy_admin() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut buffer = [0u8; 1024];
+                let _ = std::io::Read::read(&mut stream, &mut buffer);
+                let body = "<!doctype html><html><body><div id=\"app\"></div></body></html>";
+                let reply = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+                let _ = std::io::Write::write_all(&mut stream, reply.as_bytes());
+            }
+        });
+        let probe = probe_http(port);
+        assert!(!probe.health_ok && probe.bootstrap_name.is_none());
     }
 }
