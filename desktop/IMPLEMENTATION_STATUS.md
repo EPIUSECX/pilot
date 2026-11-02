@@ -6,7 +6,7 @@ Last updated: 2026-11-01. Target: Apple Silicon (arm64), macOS 27 dev machine (D
 
 1. Foundation. Pilot source, docs and CLI help inspected. Contracts, versions and the verification method are in `docs/UPSTREAM.md` (Pilot `ee57c4b3`, `frappe-ui` 1.1.0, Tailwind 3.4.19, Vue 3.5.44, Vite 8.3.5, Tauri 2.12.x).
 2. First working path. Tauri app, Frappe UI v1 bench selector, environment detection, attach-or-start, readiness by verified identity, dashboard window per bench with its own WebKit data store.
-3. Everyday operation. Guided install handoff to Terminal, bench creation, attach detection, sanitized logs, safe stop and restart, editor and Finder shortcuts, preferences, menu bar, quit flow.
+3. Everyday operation. One-step in-app setup (Apple developer tools, Homebrew, Node.js 24, Pilot, Python; progress, retry, cancel, plain-language failures), bench creation, attach detection, sanitized logs, safe stop and restart, editor and Finder shortcuts, preferences, menu bar, quit flow.
 4. Validation and packaging. Automated suites pass (see `docs/VALIDATION.md`). An unsigned arm64 `.app` and `.dmg` were built on this Mac.
 
 Upstream change made: `PILOT_ADMIN_HOST` in `admin/backend/run_server.py` (default unchanged), with `tests/admin/backend/test_run_server_host.py` and a note in `docs/configuration.md`.
@@ -28,6 +28,7 @@ On a Mac with Pilot installed (Node 24, Redis, Python 3.11+): run `docs/VALIDATI
 
 - Production benches and benches with the Admin disabled are listed but cannot be started from Desktop.
 - Sleep and resume are handled by a 10 second re-probe, not an NSWorkspace notification.
-- The guided installer downloads from a branch URL, so its content can change. The user reviews it and confirms in Terminal.
+- The Pilot installer script is downloaded from a branch URL, so its content can change. Its SHA-256 is logged and recorded. The user confirms once in the app before anything is installed.
+- The in-app setup is unit-tested with a scripted executor and real process tests, not against a Mac without Homebrew. The Homebrew branch (native password dialog through `SUDO_ASKPASS`, and Homebrew's own handling of it) and the Apple developer tools wait are unverified. Homebrew's installer is documented to prefer `SUDO_ASKPASS` over its non-interactive `sudo -n` check; confirm on a clean Mac.
 - `cargo test` prints a harmless linker warning about a duplicate `__EMBED_INFO_PLIST` symbol in the IPC authorization test.
 - `npm audit` reports 3 moderate advisories (PostCSS selector parser, reached through `frappe-ui`'s `@tailwindcss/typography` at build time). The only offered fix downgrades `frappe-ui` to 0.1.109, which breaks the v1 requirement, so it is not applied. Revisit when `frappe-ui` 1.x updates that dependency.

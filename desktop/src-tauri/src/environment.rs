@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use crate::contracts::{CheckStatus, DependencyCheck, EnvironmentReport};
 use crate::preferences::Editor;
 use crate::runtime::discovery::{
-    command_version, find_executable, find_python, tool_directories, validate_pilot_root, Version, MINIMUM_PYTHON,
-    REQUIRED_NODE_MAJOR,
+    command_version, find_executable, find_node, find_python, tool_directories, validate_pilot_root, Version,
+    MINIMUM_PYTHON, REQUIRED_NODE_MAJOR,
 };
 
 fn show(version: Version) -> String {
@@ -51,7 +51,7 @@ pub fn pilot_check(preferred: Option<&Path>, home: &Path) -> (DependencyCheck, O
         }
     }
     let message = last_problem.unwrap_or_else(|| "No Pilot installation was found in your home folder.".into());
-    let action = "Run the guided installation, or choose an existing Pilot folder.";
+    let action = "Choose Install Pilot, or choose an existing Pilot folder.";
     (missing(item, &message, action), None)
 }
 
@@ -87,16 +87,22 @@ fn tool(home: &Path, id: &str, label: &str, executable: &str, required: bool, ve
 }
 
 pub fn node_check(home: &Path) -> DependencyCheck {
-    let mut item = tool(home, "node", "Node.js", "node", true, &["--version"], "Install Node.js 24 with `brew install node@24`, then choose Refresh.");
-    if let (CheckStatus::Ok, Some(version)) = (item.status, item.version.clone()) {
-        let major: u32 = version.split('.').next().and_then(|m| m.parse().ok()).unwrap_or(0);
-        if major < REQUIRED_NODE_MAJOR {
-            item.status = CheckStatus::Incompatible;
-            item.message = format!("Found Node.js {version}; Pilot needs {REQUIRED_NODE_MAJOR} or later to build benches.");
-            item.next_action = Some("Install Node.js 24 with `brew install node@24`, then choose Refresh.".into());
-        }
+    let item = check("node", "Node.js", true);
+    let search = find_node(home);
+    if let Some((path, version)) = search.usable {
+        return found(item, &path, Some(version), "Found.");
     }
-    item
+    let action = "Install Pilot adds Node.js 24 for you.";
+    match search.highest {
+        Some((path, version)) => {
+            let mut item = missing(item, &format!("Found Node.js {}; Pilot needs {REQUIRED_NODE_MAJOR} or later to build benches.", show(version)), action);
+            item.status = CheckStatus::Incompatible;
+            item.path = Some(path.display().to_string());
+            item.version = Some(show(version));
+            item
+        }
+        None => missing(item, "node was not found.", action),
+    }
 }
 
 fn database_service(home: &Path) -> DependencyCheck {
@@ -137,10 +143,10 @@ pub fn detect(preferred: Option<&Path>, editor: Editor, home: &Path, pilot_versi
         python,
         node_check(home),
         tool(home, "git", "Git", "git", true, &["--version"], "Install the Xcode command line tools with `xcode-select --install`."),
-        tool(home, "uv", "uv", "uv", true, &["--version"], "Install uv with `brew install uv`."),
-        tool(home, "redis", "Redis", "redis-server", true, &["--version"], "Install Redis with `brew install redis`."),
+        tool(home, "uv", "uv", "uv", true, &["--version"], "Install Pilot adds uv for you."),
+        tool(home, "redis", "Redis", "redis-server", true, &["--version"], "Install Pilot adds Redis for you."),
         database_service(home),
-        tool(home, "homebrew", "Homebrew", "brew", false, &["--version"], "Needed only by the guided installation. See brew.sh."),
+        tool(home, "homebrew", "Homebrew", "brew", false, &["--version"], "Install Pilot adds Homebrew when it is needed."),
         editor_check(editor, home),
     ];
     let is_ready = checks.iter().filter(|item| item.required).all(|item| item.status == CheckStatus::Ok);
@@ -163,7 +169,7 @@ mod tests {
         let home = tempfile::tempdir().unwrap();
         let (item, root) = pilot_check(None, home.path());
         assert_eq!((item.status, root), (CheckStatus::Missing, None));
-        assert!(item.next_action.unwrap().contains("guided installation"));
+        assert!(item.next_action.unwrap().contains("Install Pilot"));
     }
 
     #[test]

@@ -6,11 +6,11 @@ The shell is Tauri 2 with a Vue 3 and TypeScript launcher built on Frappe UI 1.1
 
 ## Supported environment
 
-Apple Silicon (arm64) on macOS 14 or later. Intel builds are not configured. A Pilot installation (`~/pilot` by default) with Python 3.11 or later for the `pilot` command, Node.js 24, Git, uv and Redis. The Environment screen checks each one and tells you what to do next. Running the installed app does not need Rust or Xcode.
+Apple Silicon (arm64) on macOS 14 or later. Intel builds are not configured. A Pilot installation (`~/pilot` by default) with Python 3.11 or later for the `pilot` command, Node.js 24, Git, uv and Redis. Pilot Desktop checks each one and installs what is missing. Running the installed app does not need Rust or Xcode.
 
 ## Daily use
 
-1. Open Pilot Desktop. The Environment screen shows what is ready. Use Install Pilot for the guided route, or Choose Pilot folder to point at an existing install.
+1. Open Pilot Desktop. If this Mac is missing anything, a single screen offers Install Pilot. Confirm once and Pilot Desktop adds what is missing (Homebrew, Node.js 24, Pilot with its database, Redis and web server, Python) and shows progress in plain steps, with details one click away. It asks for your Mac password only when Homebrew itself has to be installed. If you already have Pilot, choose I already have Pilot and pick its folder. Diagnostics lists every check.
 2. On Benches, choose Start. If the bench is already running, Pilot Desktop attaches to it and does not start a second copy.
 3. Choose Open Pilot for the dashboard window. Use Logs for startup output, and the menu for Open in editor, Reveal in Finder, Restart and Reset dashboard session.
 4. Closing the window keeps the app in the menu bar. Quit stops the benches this app started and leaves attached benches running.

@@ -1,30 +1,37 @@
 <script setup lang="ts">
-import { Button, FrappeUIProvider } from 'frappe-ui'
+import { Button, FrappeUIProvider, LoadingText } from 'frappe-ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import QuitDialog from '@/components/QuitDialog.vue'
 import { retainBenchSubscription } from '@/composables/useBenches'
+import { useEnvironment } from '@/composables/useEnvironment'
 import { useQuitRequest } from '@/composables/useQuitRequest'
 import BenchesPage from '@/pages/BenchesPage.vue'
 import LogsPage from '@/pages/LogsPage.vue'
 import PreferencesPage from '@/pages/PreferencesPage.vue'
+import SetupPage from '@/pages/SetupPage.vue'
 import WelcomePage from '@/pages/WelcomePage.vue'
 
 type Page = 'benches' | 'environment' | 'logs' | 'preferences'
 
 const NAVIGATION: { page: Page; label: string; icon: string }[] = [
   { page: 'benches', label: 'Benches', icon: 'lucide-layers' },
-  { page: 'environment', label: 'Environment', icon: 'lucide-shield-check' },
   { page: 'logs', label: 'Logs', icon: 'lucide-scroll-text' },
   { page: 'preferences', label: 'Preferences', icon: 'lucide-settings' },
+  { page: 'environment', label: 'Diagnostics', icon: 'lucide-stethoscope' },
 ]
 
 const page = ref<Page>('benches')
 const logBench = ref<string | null>(null)
 const { ownedBenches, dismiss } = useQuitRequest()
+const { report, refresh } = useEnvironment()
+const needsSetup = computed(() => report.value !== null && !report.value.isReady)
 const current = computed(() => NAVIGATION.find((item) => item.page === page.value))
 let release: (() => void) | null = null
 
-onMounted(() => (release = retainBenchSubscription()))
+onMounted(() => {
+  release = retainBenchSubscription()
+  refresh()
+})
 onUnmounted(() => release?.())
 
 function showLogs(benchId: string) {
@@ -35,7 +42,11 @@ function showLogs(benchId: string) {
 
 <template>
   <FrappeUIProvider>
-    <div class="flex h-screen bg-surface-white text-ink-gray-8">
+    <div v-if="!report" class="flex h-screen items-center justify-center bg-surface-white">
+      <LoadingText text="Checking your Mac" />
+    </div>
+    <SetupPage v-else-if="needsSetup" class="bg-surface-white text-ink-gray-8" />
+    <div v-else class="flex h-screen bg-surface-white text-ink-gray-8">
       <nav
         class="flex w-48 shrink-0 flex-col gap-1 border-r border-outline-gray-2 bg-surface-gray-1 p-3"
         aria-label="Sections"

@@ -11,7 +11,7 @@ Environment: Darwin 27.0.0 (macOS 27.0, build 26A428), arm64 (Apple Silicon), 1 
 | Types | `npm run typecheck` | clean |
 | Frontend tests | `npm test` | 12 passed (dependency check, bounded and searchable logs, listener disposal) |
 | Production bundle | `npm run build` | built |
-| Rust unit and integration | `cargo test --manifest-path src-tauri/Cargo.toml` | 61 passed, 5 of 5 full runs |
+| Rust unit and integration | `cargo test --manifest-path src-tauri/Cargo.toml` | 92 passed (75 library, 12 lifecycle, 4 capability, 1 IPC authorization); the earlier 61 passed 5 of 5 full runs before the setup engine was added |
 | Bridge and upstream fix | `python -m pytest desktop/bridge/tests tests/admin/backend/test_run_server_host.py` | 16 passed |
 | Python lint | `ruff check` and `ruff format --check` on the changed Python | clean |
 
@@ -21,7 +21,7 @@ Environment: Darwin 27.0.0 (macOS 27.0, build 26A428), arm64 (Apple Silicon), 1 
 | --- | --- |
 | 1. Frappe UI major 1 and peers | `scripts/check-dependencies.test.mjs`; CI step `check:dependencies` |
 | 2. Paths with spaces | `lifecycle.rs` (root, benches and bench folders contain spaces); `discovery.rs`, `adapter.rs`, bridge tests |
-| 3. No shell injection | `adapter.rs::user_input_is_an_argument_never_shell_text`; `lifecycle.rs` create validation; `installation.rs` quoting |
+| 3. No shell injection | `adapter.rs::user_input_is_an_argument_never_shell_text`; `lifecycle.rs` create validation; `setup/executor.rs` (job environment and arguments are explicit, no shell) |
 | 4. Attach, no duplicate launch | `start_attaches_to_a_running_bench_without_a_duplicate_launch` (launch count stays 1) |
 | 5. Unrelated service rejected | `readiness.rs` classification tests; `an_unrelated_service_on_the_port_is_a_conflict_and_nothing_is_launched` (the impostor answers `/health` and `/bootstrap` with the right name) |
 | 6. Timeout, failure, subscriptions | `a_start_that_never_listens_times_out_cleans_up_and_can_be_retried`, `a_crash_during_startup_...`, `subscription.test.ts` |
@@ -45,7 +45,7 @@ The lifecycle tests drive real processes: the Rust manager spawns a stand-in `bi
 
 ## Built artifacts (unsigned, arm64)
 
-`desktop/src-tauri/target/release/bundle/macos/Pilot Desktop.app` (7.5 MiB, Mach-O arm64 thin, ad-hoc signature, `LSMinimumSystemVersion` 14.0, identifier `com.epiuse.pilot-desktop`, bridge script bundled) and `.../dmg/Pilot Desktop_0.1.0_aarch64.dmg` (4.35 MiB, `hdiutil verify` valid, SHA-256 `8cb701f54c3a4489d8af2b7861f05bfa66fa6cd04ca2a0f8dff9d9c7dbf65ab9`). The DMG is plain: the default styling step drives Finder with AppleScript, which timed out in this session, so it was built with `CI=true`.
+`desktop/src-tauri/target/release/bundle/macos/Pilot Desktop.app` (7.63 MiB, Mach-O arm64 thin, ad-hoc signature, `LSMinimumSystemVersion` 14.0, identifier `com.epiuse.pilot-desktop`, bridge script bundled) and `.../dmg/Pilot Desktop_0.1.0_aarch64.dmg` (4.40 MiB, `hdiutil verify` valid, SHA-256 `13fd9d4070b7bf202e0f6fc509a6559cddb1814a5bc633f63af7784e20949d0d`). The DMG is plain: the default styling step drives Finder with AppleScript, which timed out in this session, so it was built with `CI=true`.
 
 Checks on the bundle: it launched through LaunchServices (`open -n`), stayed running with about 100 MB of memory, and exited on `SIGTERM`. The bundled bridge ran against this repository as a Pilot root and returned `{"schema_version": 1, "pilot_version": "dev", ...}`.
 
@@ -61,7 +61,7 @@ Checks on the bundle: it launched through LaunchServices (`open -n`), stayed run
 
 Use a disposable bench on a Mac with Pilot installed (Node 24, Redis, Python 3.11+).
 
-1. Open the DMG, drag the app out, launch it from Finder with no Terminal open. Environment shows real results. Temporarily rename `~/pilot/bin` to see the Missing state and its next action, then restore it and choose Refresh.
+1. Open the DMG, drag the app out, launch it from Finder with no Terminal open. On a Mac that is ready it opens on Benches. On a Mac that is not, it shows one Install Pilot screen: confirm, watch the steps finish, and land on Benches with no further action. Check that the Homebrew path (a Mac without Homebrew) shows the macOS password dialog and that Cancel in it ends with a plain explanation. Diagnostics lists the real results.
 2. Create a bench named `desktop-smoke`. Save the password dialog, complete Pilot's setup in the dashboard window, create a test site.
 3. In the dashboard window: sign out and in, navigate, run a task and watch its progress, upload and download a backup file.
 4. Close the main window. The tray icon stays. Click Open Pilot Desktop in the tray menu, and click the Dock icon: the window returns, no second instance appears.

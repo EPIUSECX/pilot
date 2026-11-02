@@ -5,13 +5,14 @@ import type {
   CreateBenchRequest,
   DesktopError,
   EnvironmentReport,
-  InstallationPlan,
   LogLine,
   OperationResult,
   Preferences,
   PreferenceUpdate,
   ProjectTarget,
   RuntimeInfo,
+  SetupPlan,
+  SetupProgress,
 } from '@/types/contracts'
 
 export class DesktopCallError extends Error {
@@ -42,8 +43,11 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 export const desktop = {
   detectEnvironment: () => call<EnvironmentReport>('detect_environment'),
   chooseInstallation: () => call<EnvironmentReport | null>('choose_pilot_installation'),
-  planInstallation: () => call<InstallationPlan>('plan_installation'),
-  beginInstallation: () => call<void>('begin_installation'),
+  planSetup: () => call<SetupPlan>('plan_setup'),
+  startSetup: () => call<void>('start_setup'),
+  cancelSetup: () => call<void>('cancel_setup'),
+  getSetupProgress: () => call<SetupProgress>('get_setup_progress'),
+  movePilotAside: () => call<string>('move_pilot_aside'),
   runtimeInfo: () => call<RuntimeInfo>('get_runtime_info'),
   listBenches: () => call<BenchSummary[]>('list_benches'),
   createBench: (request: CreateBenchRequest) => call<OperationResult>('create_bench', { request }),
@@ -71,6 +75,10 @@ export function onBenchesChanged(handler: (benches: BenchSummary[]) => void): Pr
 
 export function onLogLine(handler: (line: LogLine) => void): Promise<UnlistenFn> {
   return listen<LogLine>('diagnostics://log', (event) => handler(event.payload))
+}
+
+export function onSetupProgress(handler: (progress: SetupProgress) => void): Promise<UnlistenFn> {
+  return listen<SetupProgress>('setup://progress', (event) => handler(event.payload))
 }
 
 export function onQuitRequested(handler: (ownedBenches: string[]) => void): Promise<UnlistenFn> {

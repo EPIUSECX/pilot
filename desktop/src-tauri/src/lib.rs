@@ -4,9 +4,9 @@ pub mod contracts;
 pub mod dashboard;
 pub mod environment;
 pub mod error;
-pub mod installation;
 pub mod preferences;
 pub mod runtime;
+pub mod setup;
 pub mod state;
 pub mod tray;
 
@@ -48,13 +48,17 @@ fn build_state(app: &AppHandle) -> Result<AppState, Box<dyn std::error::Error>> 
     let resolver = Arc::new(Resolver::new(home, bridge_path(app), preferences.clone()));
     let logs = Arc::new(LogBuffer::new(paths.logs.clone()));
     let manager = Manager::new(resolver.clone(), logs, paths.owned.clone(), Timeouts::default());
-    Ok(AppState { manager, preferences, paths, resolver, quit_confirmed: Default::default() })
+    Ok(AppState { manager, preferences, paths, resolver, setup: Default::default(), quit_confirmed: Default::default() })
 }
 
 fn connect_events(app: &AppHandle, state: &AppState) {
     let handle = app.clone();
     state.manager.logs.set_listener(Arc::new(move |line| {
         let _ = handle.emit_to(LAUNCHER_LABEL, "diagnostics://log", line);
+    }));
+    let handle = app.clone();
+    state.setup.set_listener(Arc::new(move |progress| {
+        let _ = handle.emit_to(LAUNCHER_LABEL, "setup://progress", progress);
     }));
     let (handle, manager) = (app.clone(), state.manager.clone());
     state.manager.set_on_change(Arc::new(move || {
@@ -119,8 +123,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::environment::detect_environment,
             commands::environment::choose_pilot_installation,
-            commands::environment::plan_installation,
-            commands::environment::begin_installation,
             commands::environment::get_runtime_info,
             commands::benches::list_benches,
             commands::benches::create_bench,
@@ -132,6 +134,11 @@ pub fn run() {
             commands::benches::reset_dashboard_session,
             commands::project::open_project,
             commands::diagnostics::read_logs,
+            commands::setup::plan_setup,
+            commands::setup::start_setup,
+            commands::setup::cancel_setup,
+            commands::setup::get_setup_progress,
+            commands::setup::move_pilot_aside,
             commands::settings::get_preferences,
             commands::settings::save_preferences,
             commands::app::quit_app,

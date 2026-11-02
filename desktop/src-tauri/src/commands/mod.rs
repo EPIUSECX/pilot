@@ -11,6 +11,7 @@ pub mod diagnostics;
 pub mod environment;
 pub mod project;
 pub mod settings;
+pub mod setup;
 
 pub fn authorize_webview<R: Runtime>(webview: &Webview<R>) -> AppResult<()> {
     let url = webview.url().map_err(|_| AppError::new(ErrorCategory::Unauthorized, "The calling page is unknown."))?;

@@ -1,31 +1,17 @@
-use std::path::PathBuf;
-
 use serde::Serialize;
 use tauri::{AppHandle, State, Webview};
 use tauri_plugin_dialog::DialogExt;
 
 use super::{authorize_webview, blocking};
 use crate::contracts::EnvironmentReport;
-use crate::environment::detect;
 use crate::error::{AppError, AppResult, ErrorCategory};
-use crate::installation::{self, InstallationPlan};
 use crate::preferences::save;
-use crate::runtime::adapter::InstalledPilot;
 use crate::runtime::discovery::validate_pilot_root;
 use crate::state::AppState;
 
 async fn detect_with(state: &AppState) -> AppResult<EnvironmentReport> {
-    let preferences = state.preferences.lock().expect("preferences").clone();
-    let (home, bridge) = (state.resolver.home.clone(), state.resolver.bridge.clone());
-    blocking(move || {
-        let preferred = preferences.pilot_root.map(PathBuf::from);
-        let pilot_home = home.clone();
-        Ok(detect(preferred.as_deref(), preferences.editor, &home, |root, python| {
-            InstalledPilot { root: root.to_path_buf(), python: python.to_path_buf(), bridge: bridge.clone(), home: pilot_home.clone() }
-                .pilot_version()
-        }))
-    })
-    .await
+    let resolver = state.resolver.clone();
+    blocking(move || Ok(resolver.detect())).await
 }
 
 #[tauri::command]
@@ -50,19 +36,6 @@ pub async fn choose_pilot_installation(webview: Webview, app: AppHandle, state: 
     state.resolver.invalidate();
     state.manager.notify_changed();
     detect_with(&state).await.map(Some)
-}
-
-#[tauri::command]
-pub fn plan_installation(webview: Webview) -> AppResult<InstallationPlan> {
-    authorize_webview(&webview)?;
-    Ok(installation::plan())
-}
-
-#[tauri::command]
-pub async fn begin_installation(webview: Webview, state: State<'_, AppState>) -> AppResult<()> {
-    authorize_webview(&webview)?;
-    let support = state.paths.support.clone();
-    blocking(move || installation::begin(&support)).await
 }
 
 #[derive(Serialize)]

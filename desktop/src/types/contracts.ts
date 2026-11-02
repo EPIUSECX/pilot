@@ -68,10 +68,33 @@ export interface EnvironmentReport {
   architecture: string
 }
 
-export interface InstallationPlan {
-  sourceUrl: string
-  steps: string[]
-  notes: string[]
+export type SetupPhase = 'idle' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+export type SetupStepStatus = 'pending' | 'running' | 'done' | 'failed'
+
+export interface SetupStep {
+  id: string
+  label: string
+  status: SetupStepStatus
+}
+
+export interface SetupFailure {
+  title: string
+  message: string
+  details: string
+  recovery: 'move_aside' | null
+}
+
+export interface SetupProgress {
+  phase: SetupPhase
+  steps: SetupStep[]
+  activity: string
+  failure: SetupFailure | null
+}
+
+export interface SetupPlan {
+  steps: { id: string; label: string; detail: string }[]
+  needsPassword: boolean
+  estimate: string
 }
 
 export interface LogLine {

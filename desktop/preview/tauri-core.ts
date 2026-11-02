@@ -23,9 +23,18 @@ const report = {
     check('editor', 'Cursor (editor shortcut)', 'ok', 'Open in editor is available.', { required: false }),
   ],
 }
+const steps = (...statuses: string[]) => ['Node.js 24', 'Pilot and its tools'].map((label, index) => ({ id: label, label, status: statuses[index] }))
+function setupState() {
+  const phase = new URLSearchParams(location.search).get('setup')
+  if (phase === 'running') return { phase, steps: steps('done', 'running'), activity: 'Installing MariaDB', failure: null }
+  if (phase === 'failed') return { phase, steps: steps('done', 'failed'), activity: '', failure: { title: "Couldn't reach the internet", message: "Pilot Desktop couldn't download what it needs. Check your connection and try again. Setup continues from where it stopped.", details: 'curl: (6) Could not resolve host', recovery: phase === 'failed' ? 'move_aside' : null } }
+  return { phase: 'idle', steps: [], activity: '', failure: null }
+}
 const handlers: Record<string, unknown> = {
   detect_environment: report, choose_pilot_installation: null,
-  plan_installation: { sourceUrl: 'https://raw.githubusercontent.com/frappe/pilot/develop/install.sh', steps: ['Download install.sh and show its SHA-256.', 'Install Homebrew only if `brew` is missing.'], notes: ['Nothing runs until you type yes in Terminal.'] },
+  plan_setup: { steps: [{ id: 'node', label: 'Node.js 24', detail: 'Builds the Pilot dashboard and your Frappe sites.' }, { id: 'pilot', label: 'Pilot and its tools', detail: 'Pilot itself, with the database, Redis and web server it relies on.' }], needsPassword: false, estimate: 'Usually 5 to 15 minutes, depending on your connection.' },
+  get_setup_progress: setupState(),
+  start_setup: null, cancel_setup: null, move_pilot_aside: '/Users/dev/pilot (previous)',
   get_runtime_info: { version: '0.1.0', architecture: 'aarch64', minimumMacos: '14.0' },
   list_benches: benches,
   get_preferences: { schemaVersion: 1, pilotRoot: null, editor: 'cursor', notifications: true, ui: { lastPage: null, lastBench: null } },

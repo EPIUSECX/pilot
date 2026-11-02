@@ -43,3 +43,7 @@ The launcher never calls Pilot's Admin API. The dashboard is Pilot's own page in
 ## Data
 
 Preferences (`preferences.json`, schema version 1, atomic writes, mode 0600), sanitized logs (1 MB per bench with three rotated files) and the ownership record live under the macOS application support and log directories, outside the app bundle. Removing the app deletes no Pilot data.
+
+## Setup
+
+`src-tauri/src/setup/` turns "Install Pilot" into one confirmation. `steps.rs` reduces the environment report to the missing steps in dependency order. `runner.rs` executes them through an `Executor` (real processes in their own process group, explicit environment, cancel and timeout) and a `Machine` (what this Mac has), both replaceable in tests. Output goes through `LogBuffer`, so it is redacted before anything stores or shows it. `failure.rs` classifies failures (network, disk full, password, local changes, stale checkout, other) into plain explanations and keeps the raw redacted tail as copyable details. Only network failures are retried automatically, because every step reuses what is already installed. `folder.rs` renames an unusable `~/pilot` aside, behind a confirmation, so setup can continue with a fresh copy. Progress reaches the launcher through the `setup://progress` event. `SetupSession` allows one setup at a time and owns the cancel flag. The launcher shows `SetupPage` whenever the environment report is not ready and the normal app once it is.

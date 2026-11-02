@@ -3,11 +3,13 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::environment::{pilot_check, python_check};
+use crate::contracts::EnvironmentReport;
+use crate::environment::{detect, pilot_check, python_check};
 use crate::error::{AppError, AppResult, ErrorCategory};
 use crate::preferences::Preferences;
 use crate::runtime::adapter::{InstalledPilot, PilotAdapter};
 use crate::runtime::manager::{AdapterSource, Manager};
+use crate::setup::SetupSession;
 
 const CACHE_LIFETIME: Duration = Duration::from_secs(20);
 
@@ -36,6 +38,15 @@ pub struct Resolver {
 impl Resolver {
     pub fn new(home: PathBuf, bridge: PathBuf, preferences: Arc<Mutex<Preferences>>) -> Self {
         Self { home, bridge, preferences, cache: Mutex::new(None) }
+    }
+
+    pub fn detect(&self) -> EnvironmentReport {
+        let preferences = self.preferences.lock().expect("preferences").clone();
+        let preferred = preferences.pilot_root.map(PathBuf::from);
+        detect(preferred.as_deref(), preferences.editor, &self.home, |root, python| {
+            InstalledPilot { root: root.to_path_buf(), python: python.to_path_buf(), bridge: self.bridge.clone(), home: self.home.clone() }
+                .pilot_version()
+        })
     }
 
     pub fn invalidate(&self) {
@@ -72,5 +83,6 @@ pub struct AppState {
     pub preferences: Arc<Mutex<Preferences>>,
     pub paths: AppPaths,
     pub resolver: Arc<Resolver>,
+    pub setup: Arc<SetupSession>,
     pub quit_confirmed: AtomicBool,
 }

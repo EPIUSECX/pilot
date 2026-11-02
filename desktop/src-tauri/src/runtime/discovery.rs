@@ -21,7 +21,7 @@ pub fn validate_pilot_root(path: &Path) -> AppResult<PathBuf> {
         return Ok(root);
     }
     Err(AppError::new(ErrorCategory::NotConfigured, format!("{} is not a complete Pilot installation.", root.display()))
-        .recovery("Choose the folder that contains bin/pilot, or run the guided installation."))
+        .recovery("Choose the folder that contains bin/pilot, or choose Install Pilot."))
 }
 
 pub fn parse_version(text: &str) -> Option<Version> {
@@ -55,17 +55,28 @@ fn child_directories(parent: &Path, suffix: &str) -> Vec<PathBuf> {
     found
 }
 
+/// Node versions kept by version managers, newest first. The version comes from the folder name.
+fn node_installations(parent: &Path, suffix: &str) -> Vec<(Version, PathBuf)> {
+    let entries = fs::read_dir(parent).map(|entries| entries.flatten().collect::<Vec<_>>()).unwrap_or_default();
+    let mut found: Vec<(Version, PathBuf)> = entries
+        .iter()
+        .filter_map(|entry| Some((parse_version(&entry.file_name().to_string_lossy())?, entry.path().join(suffix))))
+        .collect();
+    found.sort_by(|a, b| b.0.cmp(&a.0));
+    found
+}
+
+/// Directories a Pilot child may use. A Node that meets the minimum always comes first.
 pub fn tool_directories(home: &Path) -> Vec<PathBuf> {
-    let mut directories = vec![
-        PathBuf::from("/opt/homebrew/bin"),
-        PathBuf::from("/opt/homebrew/sbin"),
-        PathBuf::from("/opt/homebrew/opt/node@24/bin"),
-        PathBuf::from("/usr/local/bin"),
-        home.join(".local/bin"),
-        home.join(".volta/bin"),
-    ];
-    directories.extend(child_directories(&home.join(".nvm/versions/node"), "bin"));
-    directories.extend(child_directories(&home.join(".local/share/fnm/node-versions"), "installation/bin"));
+    let mut managed = node_installations(&home.join(".nvm/versions/node"), "bin");
+    managed.extend(node_installations(&home.join(".local/share/fnm/node-versions"), "installation/bin"));
+    managed.sort_by(|a, b| b.0.cmp(&a.0));
+    let (current, older): (Vec<_>, Vec<_>) = managed.into_iter().partition(|(version, _)| version.0 >= REQUIRED_NODE_MAJOR);
+    let mut directories = vec![PathBuf::from("/opt/homebrew/opt/node@24/bin")];
+    directories.extend(current.into_iter().map(|(_, directory)| directory));
+    directories.extend(["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"].map(PathBuf::from));
+    directories.extend([home.join(".local/bin"), home.join(".volta/bin")]);
+    directories.extend(older.into_iter().map(|(_, directory)| directory));
     directories.extend(child_directories(&home.join(".local/share/uv/python"), "bin"));
     directories.extend(["/usr/bin", "/bin", "/usr/sbin", "/sbin"].map(PathBuf::from));
     existing(directories)
@@ -78,6 +89,24 @@ pub fn controlled_path(home: &Path) -> String {
 
 pub fn find_executable(name: &str, directories: &[PathBuf]) -> Option<PathBuf> {
     directories.iter().map(|dir| dir.join(name)).find(|path| path.is_file())
+}
+
+/// Every Node found on the tool path, and the best one that meets the minimum.
+pub struct NodeSearch {
+    pub usable: Option<(PathBuf, Version)>,
+    pub highest: Option<(PathBuf, Version)>,
+}
+
+pub fn find_node(home: &Path) -> NodeSearch {
+    let mut found: Vec<(PathBuf, Version)> = tool_directories(home)
+        .iter()
+        .map(|directory| directory.join("node"))
+        .filter(|path| path.is_file())
+        .filter_map(|path| command_version(&path, &["--version"]).map(|version| (path, version)))
+        .collect();
+    found.sort_by(|a, b| b.1.cmp(&a.1));
+    let usable = found.iter().find(|(_, version)| version.0 >= REQUIRED_NODE_MAJOR).cloned();
+    NodeSearch { usable, highest: found.into_iter().next() }
 }
 
 pub fn python_candidates(home: &Path) -> Vec<PathBuf> {
@@ -150,6 +179,20 @@ mod tests {
         assert!(validate_pilot_root(&root).is_ok());
         let missing = validate_pilot_root(&directory.path().join("absent")).unwrap_err();
         assert_eq!(missing.category, ErrorCategory::NotFound);
+    }
+
+    #[test]
+    fn a_current_node_comes_before_older_ones_whatever_the_folder_names_sort_as() {
+        let home = tempfile::tempdir().unwrap();
+        for version in ["v9.11.2", "v22.23.1", "v24.1.0", "v25.0.0"] {
+            fs::create_dir_all(home.path().join(".nvm/versions/node").join(version).join("bin")).unwrap();
+        }
+        let names: Vec<String> = tool_directories(home.path())
+            .iter()
+            .filter_map(|path| path.parent()?.file_name()?.to_str().map(String::from))
+            .filter(|name| name.starts_with('v'))
+            .collect();
+        assert_eq!(names, ["v25.0.0", "v24.1.0", "v22.23.1", "v9.11.2"]);
     }
 
     #[test]
