@@ -36,6 +36,7 @@ from pilot.managers.database.memory import MariaDBMemory
 from pilot.managers.platform import is_macos, which
 from pilot.utils import cli_root, run_command
 
+_HOMEBREW_SOCKET = "/tmp/mysql.sock"
 _CLIENT_TIMEOUT = 5
 _IMPORT_CHUNK_BYTES = 1024 * 1024
 _MEMORY_RELEASE_TIMEOUT = 60
@@ -1164,7 +1165,10 @@ class MariaDBManager(UserOwnedDBManager):
             return self.config.socket_path
         if self.config.existing:
             return ""
-        if not is_macos() and Path(self.socket_path).exists():
+        if is_macos():
+            # Homebrew's server listens on its own socket and port, not config.port.
+            return _HOMEBREW_SOCKET if Path(_HOMEBREW_SOCKET).exists() else ""
+        if Path(self.socket_path).exists():
             return self.socket_path
         return ""
 

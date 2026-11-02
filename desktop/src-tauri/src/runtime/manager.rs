@@ -9,10 +9,13 @@ use serde::{Deserialize, Serialize};
 use super::adapter::PilotAdapter;
 use super::logs::LogBuffer;
 use super::persistence::atomic_write;
+use super::port::is_exposed_to_network;
 use super::process::{ProcessIdentity, ProcessTable};
 use super::readiness::{probe_in, Verdict};
 use crate::contracts::{BenchSummary, BenchTarget, Ownership, Status};
 use crate::error::{AppError, AppResult, ErrorCategory};
+
+const NETWORK_EXPOSED: &str = "This bench's sign-in page can be reached from other devices on your network. Update Pilot so it listens on this Mac only, and keep the admin password private.";
 
 pub trait AdapterSource: Send + Sync {
     fn current(&self) -> AppResult<Arc<dyn PilotAdapter>>;
@@ -169,6 +172,9 @@ impl Manager {
                 summary.ownership = if owned_pid.is_some() { Ownership::Owned } else { Ownership::Attached };
                 summary.dashboard_url = Some(format!("http://127.0.0.1:{}", target.admin_port));
                 summary.last_error = None;
+                if is_exposed_to_network(target.admin_port) {
+                    summary.notes.push(NETWORK_EXPOSED.to_string());
+                }
             }
             Ok(Verdict::Conflict(message)) => {
                 summary.status = Status::Failed;

@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::{Child, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -5,6 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use std::os::unix::process::CommandExt;
 
+use super::diagnosis::diagnose;
 use super::manager::{base_summary, unsupported_reason, Manager, OwnedProcess};
 use super::output::{extract_setup_url, pump};
 use super::process::ProcessTable;
@@ -98,6 +100,7 @@ impl Manager {
 
     fn watch(self: &Arc<Self>, target: &BenchTarget, mut child: Child, exit: Arc<Exit>) {
         let name = target.name.clone();
+        let path = target.path.clone();
         let port = target.admin_port;
         for (stream, reader) in [("stdout", child.stdout.take().map(Reader::Out)), ("stderr", child.stderr.take().map(Reader::Err))] {
             let Some(reader) = reader else { continue };
@@ -119,29 +122,33 @@ impl Manager {
             let code = child.wait().ok().and_then(|status| status.code()).unwrap_or(-1);
             exit.code.store(code as i64, Ordering::SeqCst);
             exit.done.store(true, Ordering::SeqCst);
-            manager.record_exit(&name, code);
+            manager.record_exit(&name, &path, code);
         });
     }
 
-    fn record_exit(&self, name: &str, code: i32) {
+    fn record_exit(&self, name: &str, path: &Path, code: i32) {
+        let recent: Vec<String> = self.logs.recent(name).into_iter().rev().take(200).map(|line| line.text).collect();
+        let recent: Vec<&str> = recent.iter().map(String::as_str).collect();
+        let diagnosis = diagnose(&recent, path);
         let unexpected = self.with_state(name, |state| {
             let was_running = state.transition.is_none() && state.owned.is_some();
             if state.transition != Some(Status::Stopping) {
                 state.owned = None;
             }
             if was_running {
-                state.last_error = Some(
-                    AppError::new(ErrorCategory::StartupFailed, format!("Pilot exited unexpectedly (code {code})."))
-                        .stage("runtime")
-                        .recovery("Open the logs, fix the cause, then start the bench again."),
-                );
+                let (message, recovery) = match &diagnosis {
+                    Some(found) => (found.message.clone(), found.recovery.clone()),
+                    None => (format!("Pilot exited unexpectedly (code {code})."), "Open the logs, fix the cause, then start the bench again.".to_string()),
+                };
+                state.last_error = Some(AppError::new(ErrorCategory::StartupFailed, message).stage("runtime").recovery(&recovery));
             }
             was_running
         });
         self.persist_owned();
         self.logs.push(name, "launcher", &format!("Pilot exited with code {code}."));
         if unexpected {
-            self.report_failure(name, &format!("Pilot exited unexpectedly (code {code})."));
+            let reason = diagnosis.map_or_else(|| format!("Pilot exited unexpectedly (code {code})."), |found| found.message);
+            self.report_failure(name, &reason);
             self.notify();
         }
     }

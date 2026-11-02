@@ -122,6 +122,7 @@ def test_has_valid_credentials_uses_pgpassword_and_tcp() -> None:
         return MagicMock(returncode=0)
 
     with (
+        patch(f"{MODULE}.is_macos", return_value=False),
         patch(f"{MODULE}.which", return_value="/usr/bin/psql"),
         patch(f"{MODULE}.subprocess.run", side_effect=fake_run),
     ):
@@ -372,6 +373,7 @@ def test_provision_user_owned_resets_failed_state_before_restarting_stopped_unit
 def test_run_sql_as_superuser_uses_local_psql() -> None:
     m = _mgr(port=5440)
     with (
+        patch(f"{MODULE}.is_macos", return_value=False),
         patch.object(m, "_psql", return_value="/usr/bin/psql"),
         patch(f"{MODULE}.subprocess.run") as run,
     ):
@@ -482,3 +484,29 @@ def test_provision_user_owned_creates_socket_dir(tmp_path) -> None:
     ):
         m._provision_user_owned()
     assert (tmp_path / "run").is_dir()
+
+
+def test_macos_uses_the_homebrew_port_not_pilots_own() -> None:
+    with patch(f"{MODULE}.is_macos", return_value=True):
+        assert _mgr().port == 5432
+
+
+def test_linux_keeps_the_configured_port() -> None:
+    with patch(f"{MODULE}.is_macos", return_value=False):
+        assert _mgr().port == PostgresConfig().port
+
+
+def test_an_existing_server_on_macos_keeps_its_configured_port() -> None:
+    with patch(f"{MODULE}.is_macos", return_value=True):
+        assert _mgr(host="db.example.com", port=6000, existing=True).port == 6000
+
+
+def test_macos_reachability_asks_the_port_homebrew_listens_on() -> None:
+    manager = _mgr()
+    with (
+        patch(f"{MODULE}.is_macos", return_value=True),
+        patch(f"{MODULE}.which", return_value="/opt/homebrew/bin/pg_isready"),
+        patch(f"{MODULE}.subprocess.run", return_value=MagicMock(returncode=0)) as run,
+    ):
+        assert manager.is_reachable() is True
+    assert run.call_args.args[0][-2:] == ["-p", "5432"]

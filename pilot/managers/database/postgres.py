@@ -12,6 +12,7 @@ from pilot.managers.platform import is_macos, which
 from pilot.utils import cli_root, run_command
 
 _CLIENT_TIMEOUT = 5
+_HOMEBREW_PORT = 5432
 _DEBIAN_POSTGRES_ROOT = Path("/usr/lib/postgresql")
 _GENERATED_CONFIG_FILES = ("postgresql.conf", "pg_hba.conf", "pg_ident.conf")
 
@@ -27,6 +28,13 @@ class PostgresManager(UserOwnedDBManager):
 
     def __init__(self, config: PostgresConfig) -> None:
         self.config = config
+
+    @property
+    def port(self) -> int:
+        """Homebrew's server keeps its own port on macOS; elsewhere Pilot's server uses the configured one."""
+        if is_macos() and not self.config.existing:
+            return _HOMEBREW_PORT
+        return self.config.port
 
     @property
     def state_dir(self) -> Path:
@@ -62,7 +70,7 @@ class PostgresManager(UserOwnedDBManager):
         cmd = [
             self._psql() or "psql",
             "-p",
-            str(self.config.port),
+            str(self.port),
             "-d",
             "postgres",
             "-tAc",
@@ -185,7 +193,7 @@ class PostgresManager(UserOwnedDBManager):
                     "-h",
                     self.config.host,
                     "-p",
-                    str(self.config.port),
+                    str(self.port),
                     "-U",
                     self.config.admin_user,
                     "-d",
@@ -225,7 +233,7 @@ class PostgresManager(UserOwnedDBManager):
         cmd = [
             self._psql() or "psql",
             "-p",
-            str(self.config.port),
+            str(self.port),
             "-v",
             "ON_ERROR_STOP=1",
             "-d",
@@ -239,7 +247,7 @@ class PostgresManager(UserOwnedDBManager):
         ready = which("pg_isready")
         if ready:
             result = subprocess.run(
-                [ready, "-h", self.config.host, "-p", str(self.config.port)], capture_output=True
+                [ready, "-h", self.config.host, "-p", str(self.port)], capture_output=True
             )
             return result.returncode == 0
         return self.is_running()
