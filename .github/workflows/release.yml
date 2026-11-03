@@ -4,6 +4,7 @@ on:
     types: [published]
 jobs:
   release:
+    if: ${{ !startsWith(github.event.release.tag_name, 'desktop-v') }}
     runs-on: ubuntu-22.04
     permissions:
       contents: write
