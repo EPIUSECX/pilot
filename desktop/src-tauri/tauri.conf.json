@@ -44,7 +44,8 @@
       "../bridge/PILOT_REVISION": "bridge/PILOT_REVISION"
     },
     "macOS": {
-      "minimumSystemVersion": "14.0"
+      "minimumSystemVersion": "14.0",
+      "signingIdentity": "-"
     }
   }
 }

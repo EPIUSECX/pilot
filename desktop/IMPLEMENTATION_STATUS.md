@@ -26,6 +26,8 @@ On a Mac with Pilot installed (Node 24, Redis, Python 3.11+): run `docs/VALIDATI
 
 ## Known limits
 
+- A downloaded unsigned build is not notarized, so macOS asks the user to confirm on first open. The first release (`desktop-v0.1.0`) shipped with a partial signature that macOS called damaged. It is replaced by a build with a sealed ad-hoc signature, verified through the zip and DMG round trips.
+
 - Production benches and benches with the Admin disabled are listed but cannot be started from Desktop.
 - Sleep and resume are handled by a 10 second re-probe, not an NSWorkspace notification.
 - The Pilot installer script is downloaded from a branch URL, so its content can change. Its SHA-256 is logged and recorded. The user confirms once in the app before anything is installed.
