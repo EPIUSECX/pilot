@@ -45,7 +45,7 @@ The lifecycle tests drive real processes: the Rust manager spawns a stand-in `bi
 
 ## Built artifacts (unsigned, arm64)
 
-`desktop/src-tauri/target/release/bundle/macos/Pilot Desktop.app` (7.65 MiB, Mach-O arm64 thin, ad-hoc signature, `LSMinimumSystemVersion` 14.0, identifier `com.epiuse.pilot-desktop`, bridge script bundled) and `.../dmg/Pilot Desktop_0.1.0_aarch64.dmg` (4.40 MiB, `hdiutil verify` valid, SHA-256 `963b74f6fc2fed17130e9b198b9c76ad3d0d060c7e914cec458b554b402e43cc`). The DMG is plain: the default styling step drives Finder with AppleScript, which timed out in this session, so it was built with `CI=true`.
+`desktop/src-tauri/target/release/bundle/macos/Pilot Desktop.app` (7.61 MiB, Mach-O arm64 thin, ad-hoc signature, `LSMinimumSystemVersion` 14.0, identifier `com.epiuse.pilot-desktop`, bridge script bundled) and `.../dmg/Pilot Desktop_0.2.0_aarch64.dmg` (4.36 MiB, `hdiutil verify` valid, SHA-256 `151e284872a2411e39ba02d77469d90498c976767736cd84013cdf798567642b`). The DMG is plain: the default styling step drives Finder with AppleScript, which timed out in this session, so it was built with `CI=true`.
 
 Checks on the bundle: it launched through LaunchServices (`open -n`), stayed running with about 100 MB of memory, and exited on `SIGTERM`. The bundled bridge ran against this repository as a Pilot root and returned `{"schema_version": 1, "pilot_version": "dev", ...}`.
 

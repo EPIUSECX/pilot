@@ -35,7 +35,7 @@ const handlers: Record<string, unknown> = {
   plan_setup: { steps: [{ id: 'node', label: 'Node.js 24', detail: 'Builds the Pilot dashboard and your Frappe sites.' }, { id: 'pilot', label: 'Pilot and its tools', detail: 'Pilot itself, with the database, Redis and web server it relies on.' }], needsPassword: false, estimate: 'Usually 5 to 15 minutes, depending on your connection.' },
   get_setup_progress: setupState(),
   start_setup: null, cancel_setup: null, move_pilot_aside: '/Users/dev/pilot (previous)',
-  get_runtime_info: { version: '0.1.0', architecture: 'aarch64', minimumMacos: '14.0' },
+  get_runtime_info: { version: '0.2.0', architecture: 'aarch64', minimumMacos: '14.0' },
   list_benches: benches,
   get_preferences: { schemaVersion: 1, pilotRoot: null, editor: 'cursor', notifications: true, ui: { lastPage: null, lastBench: null } },
   read_logs: [
