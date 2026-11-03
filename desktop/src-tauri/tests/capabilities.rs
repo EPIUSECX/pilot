@@ -47,6 +47,12 @@ fn only_one_capability_file_exists() {
 }
 
 #[test]
+fn the_bundle_is_sealed_with_an_ad_hoc_signature_unless_an_identity_overrides_it() {
+    let configuration = json(include_str!("../tauri.conf.json"));
+    assert_eq!(configuration["bundle"]["macOS"]["signingIdentity"], "-");
+}
+
+#[test]
 fn the_webview_security_settings_are_not_weakened() {
     let configuration = json(include_str!("../tauri.conf.json"));
     let security = &configuration["app"]["security"];
